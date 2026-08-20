@@ -62,7 +62,7 @@ public class App {
                     int originalId = parseId(originalIdValue);
                     Message original = findMessage(originalId);
                     if (original != null && isMessageForPatient(original, original.getReceiver())) {
-                        messages.add(new Message(nextId++, original.getReceiver(), original.getSender(), mood));
+                        messages.add(new Message(nextId++, original.getReceiver(), original.getSender(), "", mood));
                         // 返信した場合も、元のメッセージは既読にする。
                         original.setRead(true);
                         save();
@@ -85,10 +85,12 @@ public class App {
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 int originalId = parseId(formValue(body, "originalId").trim());
                 String text = formValue(body, "text").trim();
+                String mood = formValue(body, "mood").trim();
                 Message original = findMessage(originalId);
-                if (original != null && isMessageForPatient(original, original.getReceiver()) && !text.isEmpty()) {
+                if (original != null && isMessageForPatient(original, original.getReceiver())
+                        && (text.isEmpty() ? isAllowedMood(mood) : mood.isEmpty() || isAllowedMood(mood))) {
                     // 返信先は画面で選ばせず、元のメッセージの sender を使う。
-                    messages.add(new Message(nextId++, original.getReceiver(), original.getSender(), text));
+                    messages.add(new Message(nextId++, original.getReceiver(), original.getSender(), text, mood));
                     original.setRead(true);
                     save();
                     redirect(exchange, "/patient?receiver="
@@ -236,11 +238,16 @@ public class App {
                         .append(htmlEscape(message.getSender())).append(" → ")
                         .append(htmlEscape(message.getReceiver())).append("</span><span class='status'>")
                         .append(status).append("</span></div>");
-                if (isMoodReply(message)) {
-                    html.append("<div class='mood-label'>今日の気分</div>");
+                String messageText = getReplyMessageText(message);
+                String mood = getReplyMood(message);
+                if (!messageText.isEmpty()) {
+                    html.append("<div class='message-text'>").append(htmlEscape(messageText)).append("</div>");
                 }
-                html.append("<div class='message-text'>").append(htmlEscape(message.getText()))
-                        .append("</div><div class='actions'>");
+                if (!mood.isEmpty()) {
+                    html.append("<div class='mood-label'>今日の気分：")
+                            .append(htmlEscape(mood)).append("</div>");
+                }
+                html.append("<div class='actions'>");
                 if (!message.isRead()) {
                     html.append("<a href='/read?id=").append(message.getId()).append("&view=family'>読みました</a>");
                 }
@@ -260,7 +267,8 @@ public class App {
                 .append("<meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>")
                 .append("<title>").append(htmlEscape(receiverLabel)).append("の画面</title><style>")
                 .append("*{box-sizing:border-box}body{max-width:720px;margin:0 auto;padding:32px 20px;font-family:sans-serif;font-size:20px;line-height:1.7;color:#333;background:#fff}.hero{margin-bottom:28px}.hero h1{font-size:32px;line-height:1.35;margin:0 0 8px;color:#333}.hero p{margin:0;color:#596675}.section{margin:32px 0}.section h2{font-size:27px;line-height:1.4;margin:0 0 16px;color:#333}.incoming{padding:22px;margin:0 0 20px;background:#eef6fc;border:2px solid #dce9f8;border-radius:16px}.incoming.unread{border-left:6px solid #f6d2a2;background:#fff}.incoming p{margin:8px 0 16px;white-space:pre-wrap;overflow-wrap:anywhere}.incoming p:first-child{font-size:18px;color:#596675}.incoming p:nth-of-type(2){font-size:22px;color:#333}.read-button,.reply-button{display:flex;align-items:center;justify-content:center;width:100%;min-height:60px;padding:12px 18px;font-size:20px;font-weight:bold;color:#294c70;border:2px solid #9fbedf;border-radius:12px;text-decoration:none;text-align:center;cursor:pointer}.read-button{background:#eef6fc;border-color:#c9ddf4}.reply-button{margin-top:14px;min-height:64px;background:#c9ddf4;border-color:#8fb3d9}.read-mark{display:flex;align-items:center;min-height:52px;padding:10px 14px;color:#596675;font-size:18px;background:#f5f7f9;border:2px solid #e3e6ea;border-radius:10px}.reply-panel{margin-top:20px;padding:22px;border:2px solid #f6d2a2;border-radius:14px;background:#fffaf4}.reply-panel h3{margin:0 0 8px;font-size:26px;color:#333}.reply-panel p{margin:8px 0 16px}.mood-list{display:grid;gap:16px}.mood-button{width:100%;min-height:68px;padding:14px 18px;font-size:21px;font-weight:bold;color:#333;border:2px solid #aeb8c2;border-radius:12px;cursor:pointer}.mood-button.good{background:#f6d2a2}.mood-button.ok{background:#cfe3f7}.mood-button.lonely{background:#e3e6ea}.free-reply{margin-top:26px;padding-top:22px;border-top:2px solid #dce9f8}.free-reply label{display:block;margin-bottom:8px;font-size:20px;font-weight:bold}.free-reply textarea{display:block;width:100%;min-height:110px;padding:13px;font:inherit;font-size:20px;color:#333;background:#fff;border:2px solid #c9ddf4;border-radius:10px;resize:vertical}.free-reply textarea:focus{outline:3px solid #f6d2a2;outline-offset:2px}.free-reply button{display:flex;align-items:center;justify-content:center;width:100%;min-height:64px;margin-top:14px;padding:12px;font-size:20px;font-weight:bold;color:#294c70;background:#c9ddf4;border:2px solid #8fb3d9;border-radius:12px;cursor:pointer}.sent{padding:18px;margin-bottom:24px;font-size:20px;font-weight:bold;color:#333;background:#eef6fc;border:2px solid #c9ddf4;border-radius:12px}")
-                .append("</style></head><body><main><header class='hero'><h1>").append(htmlEscape(receiverLabel))
+                .append("</style><style>.mood-field{margin:22px 0 0;padding:16px;border:0}.mood-field legend{padding:0;font-weight:bold}.mood-field .mood-button{margin-top:10px}.mood-button.selected{outline:5px solid #7c3aed;outline-offset:2px}.reply-error{min-height:1.7em;margin:8px 0 0!important;color:#b42318;font-size:18px}</style>")
+                .append("<script>function selectMood(button){var form=button.closest('form');form.querySelector('input[name=mood]').value=button.getAttribute('data-mood');form.querySelectorAll('.mood-button').forEach(function(item){item.classList.remove('selected');});button.classList.add('selected');}function validateReply(form){var text=form.querySelector('textarea[name=text]').value.trim();var mood=form.querySelector('input[name=mood]').value.trim();var error=form.querySelector('.reply-error');if(!text&&!mood){error.textContent='メッセージか今日の気分を選んでください。';return false;}error.textContent='';return true;}</script></head><body><main><header class='hero'><h1>").append(htmlEscape(receiverLabel))
                 .append("の画面</h1><p>届いたメッセージを読んだり、今日の気分を選べます。</p></header>");
         if (!sentTo.isEmpty()) {
             html.append("<div class='sent' role='status'>")
@@ -289,13 +297,7 @@ public class App {
             if (message.getId() == replyId) {
                 html.append("<div class='reply-panel'><h3>")
                         .append(htmlEscape(message.getSender())).append("へ返事をします</h3>")
-                        .append("<p>今日の気分をひとつ押してください。</p>")
-                        .append("<div class='mood-list'>")
-                        .append(moodForm(message.getId(), "😊 元気", "good"))
-                        .append(moodForm(message.getId(), "😐 まあまあ", "ok"))
-                        .append(moodForm(message.getId(), "😢 寂しい", "lonely"))
-                        .append("</div>")
-                        .append(freeReplyForm(message.getId()))
+                        .append(replyForm(message.getId()))
                         .append("</div>");
             }
             html.append("</article>");
@@ -307,19 +309,26 @@ public class App {
         return html.toString();
     }
 
-    static String moodForm(int originalId, String mood, String cssClass) {
-        return "<form method='post' accept-charset='UTF-8' action='/mood'><input type='hidden' name='originalId' value='"
-                + originalId + "'><button class='mood-button " + cssClass + "' name='mood' value='"
-                + htmlEscape(mood) + "' type='submit'>" + htmlEscape(mood) + "</button></form>";
+    static String replyForm(int originalId) {
+        return "<form class='free-reply reply-form' method='post' accept-charset='UTF-8' action='/reply'"
+                + " onsubmit='return validateReply(this)'>"
+                + "<input type='hidden' name='originalId' value='" + originalId + "'>"
+                + "<label for='reply-text-" + originalId + "'>返事を書く</label>"
+                + "<textarea id='reply-text-" + originalId + "' name='text' rows='3' "
+                + "placeholder='メッセージを入力してください'></textarea>"
+                + "<fieldset class='mood-field'><legend>今日の気分</legend>"
+                + "<input type='hidden' name='mood' value=''>"
+                + moodButton("😊 元気", "good")
+                + moodButton("😐 まあまあ", "ok")
+                + moodButton("😢 寂しい", "lonely")
+                + "</fieldset>"
+                + "<p class='reply-error' aria-live='polite'></p>"
+                + "<button class='reply-submit' type='submit'>返信する</button></form>";
     }
 
-    static String freeReplyForm(int originalId) {
-        return "<form class='free-reply' method='post' accept-charset='UTF-8' action='/reply'>"
-                + "<input type='hidden' name='originalId' value='" + originalId + "'>"
-                + "<label for='reply-text-" + originalId + "'>メッセージを入力</label>"
-                + "<textarea id='reply-text-" + originalId + "' name='text' rows='3' "
-                + "placeholder='返事を入力してください' required></textarea>"
-                + "<button type='submit'>送信する</button></form>";
+    static String moodButton(String mood, String cssClass) {
+        return "<button class='mood-button " + cssClass + "' type='button' data-mood='"
+                + htmlEscape(mood) + "' onclick='selectMood(this)'>" + htmlEscape(mood) + "</button>";
     }
 
     static String resolveReceiverName(String requestedName) {
@@ -345,8 +354,25 @@ public class App {
 
     static boolean isMoodReply(Message message) {
         return !message.getSender().isEmpty() && !message.getReceiver().isEmpty()
-                && (message.getText().equals("😊 元気") || message.getText().equals("😐 まあまあ")
-                        || message.getText().equals("😢 寂しい"));
+                && !getReplyMood(message).isEmpty();
+    }
+
+    static boolean isAllowedMood(String mood) {
+        return mood.equals("😊 元気") || mood.equals("😐 まあまあ") || mood.equals("😢 寂しい");
+    }
+
+    static String getReplyMood(Message message) {
+        if (!message.getMood().trim().isEmpty()) {
+            return message.getMood();
+        }
+        // 旧形式で保存された気分だけの返信も表示できるようにする。
+        return isAllowedMood(message.getText()) ? message.getText() : "";
+    }
+
+    static String getReplyMessageText(Message message) {
+        // 旧形式の気分だけ返信は本文として重複表示しない。
+        return getReplyMood(message).equals(message.getText()) && message.getMood().isEmpty()
+                ? "" : message.getText();
     }
 
     static int parseId(String value) {
@@ -372,7 +398,7 @@ public class App {
         for (Message message : messages) {
             lines.add(message.getId() + "\t" + message.isRead() + "\t"
                     + encode(message.getSender()) + "\t" + encode(message.getReceiver()) + "\t"
-                    + encode(message.getText()));
+                    + encode(message.getText()) + "\t" + encode(message.getMood()));
         }
         try {
             Files.write(Path.of(SAVE_FILE), lines, StandardCharsets.UTF_8);
@@ -402,15 +428,19 @@ public class App {
                     String sender = decode(fields[2]);
                     String receiver;
                     String text;
+                    String mood = "";
                     if (fields.length >= 5) {
                         receiver = decode(fields[3]);
                         text = decode(fields[4]);
+                        if (fields.length >= 6) {
+                            mood = decode(fields[5]);
+                        }
                     } else {
                         // 旧形式（id/read/familyName/text）も読み込めるようにする。
                         receiver = "";
                         text = decode(fields[3]);
                     }
-                    Message message = new Message(id, sender, receiver, text);
+                    Message message = new Message(id, sender, receiver, text, mood);
                     message.setRead(read);
                     messages.add(message);
                     maxId = Math.max(maxId, id);
@@ -443,6 +473,7 @@ public class App {
                     .append(",\"sender\":\"").append(esc(message.getSender()))
                     .append("\",\"receiver\":\"").append(esc(message.getReceiver()))
                     .append("\",\"text\":\"").append(esc(message.getText()))
+                    .append("\",\"mood\":\"").append(esc(getReplyMood(message)))
                     .append("\",\"read\":").append(message.isRead())
                     .append(",\"familyName\":\"").append(esc(message.getSender()))
                     .append("\",\"message\":\"").append(esc(message.getText())).append("\"}");
@@ -511,13 +542,19 @@ class Message {
     private final String sender;
     private final String receiver;
     private final String text;
+    private final String mood;
     private boolean read;
 
     Message(int id, String sender, String receiver, String text) {
+        this(id, sender, receiver, text, "");
+    }
+
+    Message(int id, String sender, String receiver, String text, String mood) {
         this.id = id;
         this.sender = sender;
         this.receiver = receiver;
         this.text = text;
+        this.mood = mood;
         this.read = false;
     }
 
@@ -535,6 +572,10 @@ class Message {
 
     String getText() {
         return text;
+    }
+
+    String getMood() {
+        return mood;
     }
 
     boolean isRead() {

@@ -155,7 +155,7 @@ public class App {
                         .append(htmlEscape(message.getText()))
                         .append("</div><div class='actions'>");
                 if (!message.isRead()) {
-                    html.append("<a href='/read?id=").append(message.getId()).append("'>既読にする</a>");
+                    html.append("<a href='/read?id=").append(message.getId()).append("'>読みました</a>");
                 }
                 html.append("<a href='/delete?id=").append(message.getId()).append("'>削除</a>")
                         .append("</div></li>");

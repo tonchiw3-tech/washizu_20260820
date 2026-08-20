@@ -66,6 +66,19 @@ public class App {
                 return;
             }
 
+            if (path.equals("/people/delete")) {
+                if (!method.equals("POST")) {
+                    sendText(exchange, 405, "Method Not Allowed", "text/plain; charset=UTF-8");
+                    return;
+                }
+                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                String name = formValue(body, "name").trim();
+                String result = removeRegisteredName(name);
+                save();
+                redirect(exchange, "/?peopleResult=" + URLEncoder.encode(result, StandardCharsets.UTF_8));
+                return;
+            }
+
             if (path.equals("/mood")) {
                 if (!method.equals("POST")) {
                     sendText(exchange, 405, "Method Not Allowed", "text/plain; charset=UTF-8");
@@ -224,9 +237,9 @@ public class App {
         }
         String sendClass = patientPage ? "" : " class='current'";
         String receiveClass = patientPage ? " class='current'" : "";
-        return "<nav class='nav'><a" + sendClass + " href='" + sendUrl + "'>メッセージを送る</a>"
+        return "<nav class='nav'><a" + sendClass + " href='" + sendUrl + "'>家族側の画面</a>"
                 + "<a" + receiveClass + " href='" + receiverUrl
-                + "'>届いたメッセージを見る</a></nav>";
+                + "'>本人側の画面</a></nav>";
     }
 
     static String familyPageHtml(String requestedReceiver) {
@@ -242,7 +255,7 @@ public class App {
                 .append("<meta name='viewport' content='width=device-width, initial-scale=1.0'>")
                 .append("<title>つながるメッセージ - 家族側</title>")
                 .append("<style>")
-                .append("*{box-sizing:border-box}body{max-width:760px;margin:0 auto;padding:32px 20px;font-family:sans-serif;font-size:18px;line-height:1.7;color:#333;background:#fff}.hero{margin-bottom:28px}.hero h1{margin:0 0 8px;font-size:30px;line-height:1.35;color:#333}.hero p{margin:0;color:#596675}.nav{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 28px}.nav a{display:inline-flex;align-items:center;min-height:52px;padding:12px 18px;border:2px solid #e3e6ea;border-radius:12px;background:#e3e6ea;color:#333;font-weight:bold;text-decoration:none}.nav .current{border-color:#c9ddf4;background:#dce9f8;color:#294c70}.add-form{display:grid;gap:14px;margin-bottom:32px;padding:24px;background:#eef6fc;border:2px solid #dce9f8;border-radius:16px}.add-form label{display:grid;gap:8px;font-size:18px;font-weight:bold}.send-form select{width:100%;min-height:52px;padding:10px 12px;font-family:inherit;font-size:20px;line-height:1.4;color:#333;background:#fff;border:2px solid #c9ddf4;border-radius:10px}.send-form select option{font-size:20px}.add-form input,.add-form textarea{width:100%;padding:13px;font:inherit;color:#333;background:#fff;border:2px solid #c9ddf4;border-radius:10px}.add-form input:focus,.add-form textarea:focus,.send-form select:focus{outline:3px solid #f6d2a2;outline-offset:2px}.add-form button,.actions a{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:12px 18px;font:inherit;font-weight:bold;border:2px solid #c9ddf4;border-radius:10px;background:#fff;color:#294c70;text-decoration:none;cursor:pointer}.add-form button{min-height:64px;font-size:20px;background:#c9ddf4;border-color:#9fbedf}.people-manager{margin:0 0 32px;border:2px solid #dce9f8;border-radius:16px;background:#fff}.people-manager summary{display:flex;align-items:center;min-height:56px;padding:12px 18px;color:#294c70;background:#eef6fc;border-radius:14px;font-size:20px;font-weight:bold;cursor:pointer}.people-manager summary::marker{font-size:18px}.people-manager[open] summary{border-bottom:2px solid #dce9f8;border-radius:14px 14px 0 0}.people-manager-content{padding:20px 24px}.people-manager-content h2{margin:0 0 12px;font-size:22px}.people-list{margin:0 0 18px;padding-left:28px;font-size:20px}.people-form{margin:0;padding:18px;background:#f8fbfe}.people-form p{margin-bottom:0}.message-list{margin:0;padding:0;list-style:none}.message-item{margin-bottom:16px;padding:20px;background:#fff;border:2px solid #e3e6ea;border-radius:14px}.message-item.unread{border-left:6px solid #c9ddf4}.message-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.family-name{font-weight:bold;font-size:1.1rem}.status{font-size:1rem;color:#596675}.read .status{color:#596675}.message-date{margin-top:4px;color:#596675;font-size:0.95rem}.message-text{margin:10px 0 14px;font-size:18px;white-space:pre-wrap;overflow-wrap:anywhere}.actions{display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap}.actions a{min-height:56px;padding:10px 16px;font-size:20px;background:#eef6fc}.mood-reply{border-left-color:#f6d2a2!important}.mood-label{color:#7a5a2e;font-weight:bold}")
+                .append("*{box-sizing:border-box}body{max-width:760px;margin:0 auto;padding:32px 20px;font-family:sans-serif;font-size:18px;line-height:1.7;color:#333;background:#fff}.hero{margin-bottom:28px}.hero h1{margin:0 0 8px;font-size:30px;line-height:1.35;color:#333}.hero p{margin:0;color:#596675}.nav{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 28px}.nav a{display:inline-flex;align-items:center;min-height:52px;padding:12px 18px;border:2px solid #e3e6ea;border-radius:12px;background:#e3e6ea;color:#333;font-weight:bold;text-decoration:none}.nav .current{border-color:#c9ddf4;background:#dce9f8;color:#294c70}.add-form{display:grid;gap:14px;margin-bottom:32px;padding:24px;background:#eef6fc;border:2px solid #dce9f8;border-radius:16px}.add-form label{display:grid;gap:8px;font-size:18px;font-weight:bold}.send-form select{width:100%;min-height:52px;padding:10px 12px;font-family:inherit;font-size:20px;line-height:1.4;color:#333;background:#fff;border:2px solid #c9ddf4;border-radius:10px}.send-form select option{font-size:20px}.add-form input,.add-form textarea{width:100%;padding:13px;font:inherit;color:#333;background:#fff;border:2px solid #c9ddf4;border-radius:10px}.add-form input:focus,.add-form textarea:focus,.send-form select:focus{outline:3px solid #f6d2a2;outline-offset:2px}.add-form button,.actions a{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:12px 18px;font:inherit;font-weight:bold;border:2px solid #c9ddf4;border-radius:10px;background:#fff;color:#294c70;text-decoration:none;cursor:pointer}.add-form button{min-height:64px;font-size:20px;background:#c9ddf4;border-color:#9fbedf}.people-manager{margin:0 0 32px;border:2px solid #dce9f8;border-radius:16px;background:#fff}.people-manager summary{display:flex;align-items:center;min-height:56px;padding:12px 18px;color:#294c70;background:#eef6fc;border-radius:14px;font-size:20px;font-weight:bold;cursor:pointer}.people-manager summary::marker{font-size:18px}.people-manager[open] summary{border-bottom:2px solid #dce9f8;border-radius:14px 14px 0 0}.people-manager-content{padding:20px 24px}.people-manager-content h2{margin:0 0 12px;font-size:22px}.people-list{margin:0 0 18px;padding-left:28px;font-size:20px}.people-list li{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:8px 0}.delete-person-form{margin:0}.delete-person-button{min-height:44px;padding:6px 14px;font:inherit;font-weight:bold;color:#8a2f2f;background:#fff;border:2px solid #d9a5a5;border-radius:8px;cursor:pointer}.people-form{margin:0;padding:18px;background:#f8fbfe}.people-form p{margin-bottom:0}.message-list{margin:0;padding:0;list-style:none}.message-item{margin-bottom:16px;padding:20px;background:#fff;border:2px solid #e3e6ea;border-radius:14px}.message-item.unread{border-left:6px solid #c9ddf4}.message-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.family-name{font-weight:bold;font-size:1.1rem}.status{font-size:1rem;color:#596675}.read .status{color:#596675}.message-date{margin-top:4px;color:#596675;font-size:0.95rem}.message-text{margin:10px 0 14px;font-size:18px;white-space:pre-wrap;overflow-wrap:anywhere}.actions{display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap}.actions a{min-height:56px;padding:10px 16px;font-size:20px;background:#eef6fc}.mood-reply{border-left-color:#f6d2a2!important}.mood-label{color:#7a5a2e;font-weight:bold}")
                 .append("</style></head><body><main>")
                 .append("<header class='hero'><h1>つながるメッセージ</h1><p>家族からの送信、既読確認、削除を行います。</p></header>")
                 .append(navigationHtml(receiverName, false));
@@ -254,6 +267,10 @@ public class App {
             html.append("<p role='alert'>同じ名前は追加できません。</p>");
         } else if ("full".equals(peopleResult)) {
             html.append("<p role='alert'>登録できる名前は最大10名です。</p>");
+        } else if ("deleted".equals(peopleResult)) {
+            html.append("<p role='status'>名前を登録一覧から削除しました。</p>");
+        } else if ("notFound".equals(peopleResult)) {
+            html.append("<p role='alert'>その名前は登録一覧にありません。</p>");
         }
         html.append("<form class='add-form send-form' method='post' accept-charset='UTF-8' action='/add?view=family'>")
                 .append("<label>送る人<select name='sender' required>")
@@ -266,9 +283,15 @@ public class App {
                 .append("<button type='submit'>送信する</button></form>")
                 .append("<details class='people-manager'")
                 .append(peopleResult.isEmpty() ? ">" : " open>")
-                .append("<summary>登録する人を追加・管理</summary><div class='people-manager-content'><h2>現在登録されている名前</h2><ul class='people-list'>");
+        .append("<summary>登録する人を追加・管理</summary><div class='people-manager-content'><h2>現在登録されている名前</h2><ul class='people-list'>");
         for (String name : registeredNames) {
-            html.append("<li>").append(htmlEscape(name)).append("</li>");
+            String confirmMessage = name + "を登録一覧から削除しますか？";
+            html.append("<li><span>").append(htmlEscape(name)).append("</span>")
+                    .append("<form class='delete-person-form' method='post' accept-charset='UTF-8' action='/people/delete'")
+                    .append(" data-confirm='").append(htmlEscape(confirmMessage))
+                    .append("' onsubmit='return window.confirm(this.dataset.confirm)'>")
+                    .append("<input type='hidden' name='name' value='").append(htmlEscape(name)).append("'>")
+                    .append("<button class='delete-person-button' type='submit'>削除</button></form></li>");
         }
         html.append("</ul><form class='add-form people-form' method='post' accept-charset='UTF-8' action='/people'>")
                 .append("<label>新しい名前<input name='name' placeholder='名前を入力してください' autocomplete='name' required></label>")
@@ -447,6 +470,13 @@ public class App {
         }
         registeredNames.add(normalizedName);
         return "added";
+    }
+
+    static String removeRegisteredName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return "notFound";
+        }
+        return registeredNames.remove(name.trim()) ? "deleted" : "notFound";
     }
 
     static boolean isMessageForPatient(Message message, String receiverName) {

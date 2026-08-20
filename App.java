@@ -143,7 +143,7 @@ public class App {
                     sendText(exchange, 200, messagesToJson(), "application/json; charset=UTF-8");
                     return;
                 }
-                sendHtml(exchange, familyPageHtml());
+                sendHtml(exchange, familyPageHtml(queryValue(exchange, "receiver")));
                 return;
             }
 
@@ -198,9 +198,23 @@ public class App {
         return "";
     }
 
-    static String familyPageHtml() {
+    static String navigationHtml(String receiverName, boolean patientPage) {
+        String receiverUrl = "/patient?receiver="
+                + URLEncoder.encode(receiverName, StandardCharsets.UTF_8);
+        String sendUrl = "/family";
+        if (patientPage && !receiverName.isEmpty()) {
+            sendUrl += "?receiver=" + URLEncoder.encode(receiverName, StandardCharsets.UTF_8);
+        }
+        String sendClass = patientPage ? "" : " class='current'";
+        String receiveClass = patientPage ? " class='current'" : "";
+        return "<nav class='nav'><a" + sendClass + " href='" + sendUrl + "'>メッセージを送る</a>"
+                + "<a" + receiveClass + " href='" + receiverUrl
+                + "'>届いたメッセージを見る</a></nav>";
+    }
+
+    static String familyPageHtml(String requestedReceiver) {
         int unreadCount = 0;
-        String receiverName = resolveReceiverName("");
+        String receiverName = resolveReceiverName(requestedReceiver);
         StringBuilder html = new StringBuilder();
         html.append("<!DOCTYPE html><html lang='ja'><head>")
                 .append("<meta charset='UTF-8'>")
@@ -210,9 +224,7 @@ public class App {
                 .append("*{box-sizing:border-box}body{max-width:760px;margin:0 auto;padding:32px 20px;font-family:sans-serif;font-size:18px;line-height:1.7;color:#333;background:#fff}.hero{margin-bottom:28px}.hero h1{margin:0 0 8px;font-size:30px;line-height:1.35;color:#333}.hero p{margin:0;color:#596675}.nav{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 28px}.nav a{display:inline-flex;align-items:center;min-height:52px;padding:12px 18px;border:2px solid #e3e6ea;border-radius:12px;background:#e3e6ea;color:#333;font-weight:bold;text-decoration:none}.nav .current{border-color:#c9ddf4;background:#dce9f8;color:#294c70}.add-form{display:grid;gap:14px;margin-bottom:32px;padding:24px;background:#eef6fc;border:2px solid #dce9f8;border-radius:16px}.add-form label{display:grid;gap:8px;font-size:18px;font-weight:bold}.add-form input,.add-form textarea{width:100%;padding:13px;font:inherit;color:#333;background:#fff;border:2px solid #c9ddf4;border-radius:10px}.add-form input:focus,.add-form textarea:focus{outline:3px solid #f6d2a2;outline-offset:2px}.add-form button,.actions a{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:12px 18px;font:inherit;font-weight:bold;border:2px solid #c9ddf4;border-radius:10px;background:#fff;color:#294c70;text-decoration:none;cursor:pointer}.add-form button{min-height:64px;font-size:20px;background:#c9ddf4;border-color:#9fbedf}.message-list{margin:0;padding:0;list-style:none}.message-item{margin-bottom:16px;padding:20px;background:#fff;border:2px solid #e3e6ea;border-radius:14px}.message-item.unread{border-left:6px solid #c9ddf4}.message-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.family-name{font-weight:bold;font-size:1.1rem}.status{font-size:1rem;color:#596675}.read .status{color:#596675}.message-text{margin:10px 0 14px;font-size:18px;white-space:pre-wrap;overflow-wrap:anywhere}.actions{display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap}.actions a{min-height:56px;padding:10px 16px;font-size:20px;background:#eef6fc}.mood-reply{border-left-color:#f6d2a2!important}.mood-label{color:#7a5a2e;font-weight:bold}")
                 .append("</style></head><body><main>")
                 .append("<header class='hero'><h1>つながるメッセージ</h1><p>家族からの送信、既読確認、削除を行います。</p></header>")
-                .append("<nav class='nav'><a class='current' href='/family'>家族側</a><a href='/patient?receiver=")
-                .append(URLEncoder.encode(receiverName, StandardCharsets.UTF_8))
-                .append("'>受け取る人側の画面</a></nav>")
+                .append(navigationHtml(receiverName, false))
                 .append("<form class='add-form' method='post' accept-charset='UTF-8' action='/add?view=family'>")
                 .append("<label>送る人<input name='sender' placeholder='送る人' autocomplete='name' required></label>")
                 .append("<label>受け取る人<input name='receiver' value='")
@@ -268,11 +280,12 @@ public class App {
         html.append("<!DOCTYPE html><html lang='ja'><head>")
                 .append("<meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>")
                 .append("<title>").append(htmlEscape(receiverLabel)).append("の画面</title><style>")
-                .append("*{box-sizing:border-box}body{max-width:720px;margin:0 auto;padding:32px 20px;font-family:sans-serif;font-size:20px;line-height:1.7;color:#333;background:#fff}.hero{margin-bottom:28px}.hero h1{font-size:32px;line-height:1.35;margin:0 0 8px;color:#333}.hero p{margin:0;color:#596675}.section{margin:32px 0}.section h2{font-size:27px;line-height:1.4;margin:0 0 16px;color:#333}.incoming{padding:22px;margin:0 0 20px;background:#eef6fc;border:2px solid #dce9f8;border-radius:16px}.incoming.unread{border-left:6px solid #f6d2a2;background:#fff}.incoming p{margin:8px 0 16px;white-space:pre-wrap;overflow-wrap:anywhere}.incoming p:first-child{font-size:18px;color:#596675}.incoming p:nth-of-type(2){font-size:22px;color:#333}.read-button,.reply-button{display:flex;align-items:center;justify-content:center;width:100%;min-height:60px;padding:12px 18px;font-size:20px;font-weight:bold;color:#294c70;border:2px solid #9fbedf;border-radius:12px;text-decoration:none;text-align:center;cursor:pointer}.read-button{background:#eef6fc;border-color:#c9ddf4}.reply-button{margin-top:14px;min-height:64px;background:#c9ddf4;border-color:#8fb3d9}.read-mark{display:flex;align-items:center;min-height:52px;padding:10px 14px;color:#596675;font-size:18px;background:#f5f7f9;border:2px solid #e3e6ea;border-radius:10px}.reply-panel{margin-top:20px;padding:22px;border:2px solid #f6d2a2;border-radius:14px;background:#fffaf4}.reply-panel h3{margin:0 0 8px;font-size:26px;color:#333}.reply-panel p{margin:8px 0 16px}.mood-list{display:grid;gap:16px}.mood-button{width:100%;min-height:68px;padding:14px 18px;font-size:21px;font-weight:bold;color:#333;border:2px solid #aeb8c2;border-radius:12px;cursor:pointer}.mood-button.good{background:#f6d2a2}.mood-button.ok{background:#cfe3f7}.mood-button.lonely{background:#e3e6ea}.free-reply{margin-top:26px;padding-top:22px;border-top:2px solid #dce9f8}.free-reply label{display:block;margin-bottom:8px;font-size:20px;font-weight:bold}.free-reply textarea{display:block;width:100%;min-height:110px;padding:13px;font:inherit;font-size:20px;color:#333;background:#fff;border:2px solid #c9ddf4;border-radius:10px;resize:vertical}.free-reply textarea:focus{outline:3px solid #f6d2a2;outline-offset:2px}.free-reply button{display:flex;align-items:center;justify-content:center;width:100%;min-height:64px;margin-top:14px;padding:12px;font-size:20px;font-weight:bold;color:#294c70;background:#c9ddf4;border:2px solid #8fb3d9;border-radius:12px;cursor:pointer}.sent{padding:18px;margin-bottom:24px;font-size:20px;font-weight:bold;color:#333;background:#eef6fc;border:2px solid #c9ddf4;border-radius:12px}")
+                .append("*{box-sizing:border-box}body{max-width:720px;margin:0 auto;padding:32px 20px;font-family:sans-serif;font-size:20px;line-height:1.7;color:#333;background:#fff}.hero{margin-bottom:28px}.hero h1{font-size:32px;line-height:1.35;margin:0 0 8px;color:#333}.hero p{margin:0;color:#596675}.nav{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 28px}.nav a{display:inline-flex;align-items:center;min-height:52px;padding:12px 18px;border:2px solid #e3e6ea;border-radius:12px;background:#e3e6ea;color:#333;font-weight:bold;text-decoration:none}.nav .current{border-color:#c9ddf4;background:#dce9f8;color:#294c70}.section{margin:32px 0}.section h2{font-size:27px;line-height:1.4;margin:0 0 16px;color:#333}.incoming{padding:22px;margin:0 0 20px;background:#eef6fc;border:2px solid #dce9f8;border-radius:16px}.incoming.unread{border-left:6px solid #f6d2a2;background:#fff}.incoming p{margin:8px 0 16px;white-space:pre-wrap;overflow-wrap:anywhere}.incoming p:first-child{font-size:18px;color:#596675}.incoming p:nth-of-type(2){font-size:22px;color:#333}.read-button,.reply-button{display:flex;align-items:center;justify-content:center;width:100%;min-height:60px;padding:12px 18px;font-size:20px;font-weight:bold;color:#294c70;border:2px solid #9fbedf;border-radius:12px;text-decoration:none;text-align:center;cursor:pointer}.read-button{background:#eef6fc;border-color:#c9ddf4}.reply-button{margin-top:14px;min-height:64px;background:#c9ddf4;border-color:#8fb3d9}.read-mark{display:flex;align-items:center;min-height:52px;padding:10px 14px;color:#596675;font-size:18px;background:#f5f7f9;border:2px solid #e3e6ea;border-radius:10px}.reply-panel{margin-top:20px;padding:22px;border:2px solid #f6d2a2;border-radius:14px;background:#fffaf4}.reply-panel h3{margin:0 0 8px;font-size:26px;color:#333}.reply-panel p{margin:8px 0 16px}.mood-list{display:grid;gap:16px}.mood-button{width:100%;min-height:68px;padding:14px 18px;font-size:21px;font-weight:bold;color:#333;border:2px solid #aeb8c2;border-radius:12px;cursor:pointer}.mood-button.good{background:#f6d2a2}.mood-button.ok{background:#cfe3f7}.mood-button.lonely{background:#e3e6ea}.free-reply{margin-top:26px;padding-top:22px;border-top:2px solid #dce9f8}.free-reply label{display:block;margin-bottom:8px;font-size:20px;font-weight:bold}.free-reply textarea{display:block;width:100%;min-height:110px;padding:13px;font:inherit;font-size:20px;color:#333;background:#fff;border:2px solid #c9ddf4;border-radius:10px;resize:vertical}.free-reply textarea:focus{outline:3px solid #f6d2a2;outline-offset:2px}.free-reply button{display:flex;align-items:center;justify-content:center;width:100%;min-height:64px;margin-top:14px;padding:12px;font-size:20px;font-weight:bold;color:#294c70;background:#c9ddf4;border:2px solid #8fb3d9;border-radius:12px;cursor:pointer}.sent{padding:18px;margin-bottom:24px;font-size:20px;font-weight:bold;color:#333;background:#eef6fc;border:2px solid #c9ddf4;border-radius:12px}")
                 .append("</style><style>.mood-field{margin:22px 0 0;padding:16px;border:0}.mood-field legend{padding:0;font-weight:bold}.mood-field .mood-button{margin-top:10px}.mood-button.selected{outline:5px solid #7c3aed;outline-offset:2px}.reply-error{min-height:1.7em;margin:8px 0 0!important;color:#b42318;font-size:18px}</style>")
                 .append("<style>.reply-mark{display:flex;align-items:center;min-height:52px;margin-top:14px;padding:10px 14px;color:#333;font-size:18px;background:#fff;border:2px solid #e3e6ea;border-radius:10px}</style>")
                 .append("<script>function selectMood(button){var form=button.closest('form');form.querySelector('input[name=mood]').value=button.getAttribute('data-mood');form.querySelectorAll('.mood-button').forEach(function(item){item.classList.remove('selected');});button.classList.add('selected');}function validateReply(form){var text=form.querySelector('textarea[name=text]').value.trim();var mood=form.querySelector('input[name=mood]').value.trim();var error=form.querySelector('.reply-error');if(!text&&!mood){error.textContent='メッセージか今日の気分を選んでください。';return false;}error.textContent='';return true;}</script></head><body><main><header class='hero'><h1>").append(htmlEscape(receiverLabel))
-                .append("の画面</h1><p>届いたメッセージを読んだり、今日の気分を選べます。</p></header>");
+                .append("の画面</h1><p>届いたメッセージを読んだり、今日の気分を選べます。</p></header>")
+                .append(navigationHtml(receiverName, true));
         if (!sentTo.isEmpty()) {
             html.append("<div class='sent' role='status'>")
                     .append(htmlEscape(sentTo)).append("へ返信しました</div>");

@@ -43,7 +43,9 @@ public class App {
                     messages.add(new Message(nextId++, sender, receiver, text));
                     save();
                 }
-                redirect(exchange, queryValue(exchange, "view").equals("family") ? "/family" : "/");
+                String view = queryValue(exchange, "view");
+                redirect(exchange, view.equals("family") ? "/family" :
+                        view.equals("patient") ? "/patient" : "/");
                 return;
             }
 
@@ -215,7 +217,7 @@ public class App {
         html.append("<!DOCTYPE html><html lang='ja'><head>")
                 .append("<meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>")
                 .append("<title>お父さんの画面</title><style>")
-                .append("*{box-sizing:border-box}body{max-width:720px;margin:0 auto;padding:24px 18px;font-family:sans-serif;font-size:20px;line-height:1.6;color:#222;background:#fff}.hero{margin-bottom:24px}.hero h1{font-size:32px;margin:0 0 8px}.hero p{margin:0;color:#555}.section{margin:28px 0}.section h2{font-size:26px;margin:0 0 14px}.incoming{padding:20px;margin:0 0 16px;background:#eef6ff;border:2px solid #2563eb;border-radius:12px}.incoming.unread{background:#fff}.incoming p{margin:8px 0 16px;white-space:pre-wrap;overflow-wrap:anywhere}.read-button{display:block;width:100%;min-height:64px;padding:12px;font-size:22px;font-weight:bold;color:#fff;background:#2563eb;border:0;border-radius:10px;text-decoration:none;text-align:center}.read-mark{color:#555;font-size:18px}.mood-list{display:grid;gap:16px}.mood-button{width:100%;min-height:72px;padding:12px 18px;font-size:22px;font-weight:bold;border:2px solid #333;border-radius:12px;cursor:pointer}.mood-button.good{background:#d9fbe3;color:#14532d}.mood-button.ok{background:#fff4c2;color:#713f12}.mood-button.lonely{background:#dfeeff;color:#1e3a8a}.sent{padding:16px;margin-bottom:20px;font-size:23px;font-weight:bold;color:#14532d;background:#dcfce7;border:2px solid #16a34a;border-radius:10px}")
+                .append("*{box-sizing:border-box}body{max-width:720px;margin:0 auto;padding:24px 18px;font-family:sans-serif;font-size:20px;line-height:1.6;color:#222;background:#fff}.hero{margin-bottom:24px}.hero h1{font-size:32px;margin:0 0 8px}.hero p{margin:0;color:#555}.section{margin:28px 0}.section h2{font-size:26px;margin:0 0 14px}.incoming{padding:20px;margin:0 0 16px;background:#eef6ff;border:2px solid #2563eb;border-radius:12px}.incoming.unread{background:#fff}.incoming p{margin:8px 0 16px;white-space:pre-wrap;overflow-wrap:anywhere}.read-button{display:block;width:100%;min-height:64px;padding:12px;font-size:22px;font-weight:bold;color:#fff;background:#2563eb;border:0;border-radius:10px;text-decoration:none;text-align:center}.read-mark{color:#555;font-size:18px}.reply-form{display:grid;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid #ccd}.reply-form textarea{width:100%;padding:10px;font:inherit;border:1px solid #aaa;border-radius:4px}.reply-form button{padding:10px;font:inherit;border:1px solid #888;border-radius:4px;background:#f5f5f5;cursor:pointer}.mood-list{display:grid;gap:16px}.mood-button{width:100%;min-height:72px;padding:12px 18px;font-size:22px;font-weight:bold;border:2px solid #333;border-radius:12px;cursor:pointer}.mood-button.good{background:#d9fbe3;color:#14532d}.mood-button.ok{background:#fff4c2;color:#713f12}.mood-button.lonely{background:#dfeeff;color:#1e3a8a}.sent{padding:16px;margin-bottom:20px;font-size:23px;font-weight:bold;color:#14532d;background:#dcfce7;border:2px solid #16a34a;border-radius:10px}")
                 .append("</style></head><body><main><header class='hero'><h1>お父さんの画面</h1><p>届いたメッセージを読んだり、今日の気分を選べます。</p></header>");
         if (moodSent) {
             html.append("<div class='sent' role='status'>友香へ送りました</div>");
@@ -235,7 +237,12 @@ public class App {
             } else {
                 html.append("<div class='read-mark'>読みました</div>");
             }
-            html.append("</article>");
+            html.append("<form class='reply-form' method='post' action='/add?view=patient'>")
+                    .append("<div>返信先: ").append(htmlEscape(message.getSender())).append("</div>")
+                    .append("<input type='hidden' name='sender' value='").append(htmlEscape(PATIENT_NAME)).append("'>")
+                    .append("<input type='hidden' name='receiver' value='").append(htmlEscape(message.getSender())).append("'>")
+                    .append("<textarea name='text' placeholder='返信メッセージを入力してください' rows='3' required></textarea>")
+                    .append("<button type='submit'>返信する</button></form></article>");
         }
         if (!found) {
             html.append("<p>今はメッセージはありません。</p>");

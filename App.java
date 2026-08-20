@@ -15,7 +15,6 @@ public class App {
     // java App を実行した場所に保存するファイル。従来の保存先をそのまま使う。
     static final String SAVE_FILE = "todos.txt";
     static final String DEFAULT_RECEIVER_NAME = "受け取る人";
-    static final String FAMILY_NAME = "友香";
 
     static List<Message> messages = new ArrayList<>();
     static int nextId = 1;
@@ -74,6 +73,29 @@ public class App {
                     }
                 }
                 // 返信元が特定できない気分送信は登録しない。
+                redirect(exchange, "/patient");
+                return;
+            }
+
+            if (path.equals("/reply")) {
+                if (!method.equals("POST")) {
+                    sendText(exchange, 405, "Method Not Allowed", "text/plain; charset=UTF-8");
+                    return;
+                }
+                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                int originalId = parseId(formValue(body, "originalId").trim());
+                String text = formValue(body, "text").trim();
+                Message original = findMessage(originalId);
+                if (original != null && isMessageForPatient(original, original.getReceiver()) && !text.isEmpty()) {
+                    // 返信先は画面で選ばせず、元のメッセージの sender を使う。
+                    messages.add(new Message(nextId++, original.getReceiver(), original.getSender(), text));
+                    original.setRead(true);
+                    save();
+                    redirect(exchange, "/patient?receiver="
+                            + URLEncoder.encode(original.getReceiver(), StandardCharsets.UTF_8)
+                            + "&sentTo=" + URLEncoder.encode(original.getSender(), StandardCharsets.UTF_8));
+                    return;
+                }
                 redirect(exchange, "/patient");
                 return;
             }
@@ -187,9 +209,11 @@ public class App {
                 .append(".message-list{margin:0;padding:0;list-style:none}.message-item{margin-bottom:12px;padding:16px;background:white;border:1px solid #ddd;border-radius:8px}.message-item.unread{border-left:5px solid #2563eb}.message-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.family-name{font-weight:bold;font-size:1.1rem}.status{font-size:.9rem;color:#2563eb}.read .status{color:#666}.message-text{margin:8px 0 12px;white-space:pre-wrap;overflow-wrap:anywhere}.actions{display:flex;gap:8px;justify-content:flex-end}.mood-reply{border-left-color:#c45a00!important}.mood-label{color:#8a3b00;font-weight:bold}")
                 .append("</style></head><body><main>")
                 .append("<header class='hero'><h1>つながるメッセージ</h1><p>家族からの送信、既読確認、削除を行います。</p></header>")
-                .append("<nav class='nav'><a class='current' href='/family'>家族側</a><a href='/patient'>受け取る人側の画面</a></nav>")
-                .append("<form class='add-form' method='post' action='/add?view=family'>")
-                .append("<label>送る人<input name='sender' value='友香' placeholder='送る人' autocomplete='name' required></label>")
+                .append("<nav class='nav'><a class='current' href='/family'>家族側</a><a href='/patient?receiver=")
+                .append(URLEncoder.encode(receiverName, StandardCharsets.UTF_8))
+                .append("'>受け取る人側の画面</a></nav>")
+                .append("<form class='add-form' method='post' accept-charset='UTF-8' action='/add?view=family'>")
+                .append("<label>送る人<input name='sender' placeholder='送る人' autocomplete='name' required></label>")
                 .append("<label>受け取る人<input name='receiver' value='")
                 .append(htmlEscape(receiverName.isEmpty() ? "" : receiverName))
                 .append("' placeholder='受け取る人' autocomplete='name' required></label>")
@@ -238,7 +262,7 @@ public class App {
         html.append("<!DOCTYPE html><html lang='ja'><head>")
                 .append("<meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>")
                 .append("<title>").append(htmlEscape(receiverLabel)).append("の画面</title><style>")
-                .append("*{box-sizing:border-box}body{max-width:720px;margin:0 auto;padding:24px 18px;font-family:sans-serif;font-size:20px;line-height:1.6;color:#222;background:#fff}.hero{margin-bottom:24px}.hero h1{font-size:32px;margin:0 0 8px}.hero p{margin:0;color:#555}.section{margin:28px 0}.section h2{font-size:26px;margin:0 0 14px}.incoming{padding:20px;margin:0 0 16px;background:#eef6ff;border:2px solid #2563eb;border-radius:12px}.incoming.unread{background:#fff}.incoming p{margin:8px 0 16px;white-space:pre-wrap;overflow-wrap:anywhere}.read-button,.reply-button{display:block;width:100%;min-height:64px;padding:12px;font-size:22px;font-weight:bold;color:#fff;border:0;border-radius:10px;text-decoration:none;text-align:center}.read-button{background:#2563eb}.reply-button{margin-top:12px;background:#7c3aed}.read-mark{color:#555;font-size:18px}.reply-panel{margin-top:18px;padding:18px;border-top:2px solid #7c3aed;background:#f5f3ff;border-radius:10px}.reply-panel h3{margin:0 0 8px;font-size:25px}.reply-panel p{margin:8px 0 14px}.mood-list{display:grid;gap:16px}.mood-button{width:100%;min-height:72px;padding:12px 18px;font-size:22px;font-weight:bold;border:2px solid #333;border-radius:12px;cursor:pointer}.mood-button.good{background:#c45a00;color:#fff}.mood-button.ok{background:#1f5aa6;color:#fff}.mood-button.lonely{background:#5b6573;color:#fff}.sent{padding:16px;margin-bottom:20px;font-size:23px;font-weight:bold;color:#123b5d;background:#e0f2fe;border:2px solid #2563eb;border-radius:10px}")
+                .append("*{box-sizing:border-box}body{max-width:720px;margin:0 auto;padding:24px 18px;font-family:sans-serif;font-size:20px;line-height:1.6;color:#222;background:#fff}.hero{margin-bottom:24px}.hero h1{font-size:32px;margin:0 0 8px}.hero p{margin:0;color:#555}.section{margin:28px 0}.section h2{font-size:26px;margin:0 0 14px}.incoming{padding:20px;margin:0 0 16px;background:#eef6ff;border:2px solid #2563eb;border-radius:12px}.incoming.unread{background:#fff}.incoming p{margin:8px 0 16px;white-space:pre-wrap;overflow-wrap:anywhere}.read-button,.reply-button{display:block;width:100%;min-height:64px;padding:12px;font-size:22px;font-weight:bold;color:#fff;border:0;border-radius:10px;text-decoration:none;text-align:center}.read-button{background:#2563eb}.reply-button{margin-top:12px;background:#7c3aed}.read-mark{color:#555;font-size:18px}.reply-panel{margin-top:18px;padding:18px;border-top:2px solid #7c3aed;background:#f5f3ff;border-radius:10px}.reply-panel h3{margin:0 0 8px;font-size:25px}.reply-panel p{margin:8px 0 14px}.mood-list{display:grid;gap:16px}.mood-button{width:100%;min-height:72px;padding:12px 18px;font-size:22px;font-weight:bold;border:2px solid #333;border-radius:12px;cursor:pointer}.mood-button.good{background:#c45a00;color:#fff}.mood-button.ok{background:#1f5aa6;color:#fff}.mood-button.lonely{background:#5b6573;color:#fff}.free-reply{margin-top:24px;padding-top:20px;border-top:1px solid #bbb}.free-reply label{display:block;margin-bottom:8px;font-size:20px;font-weight:bold}.free-reply textarea{display:block;width:100%;min-height:100px;padding:12px;font:inherit;font-size:20px;border:2px solid #777;border-radius:8px;resize:vertical}.free-reply button{width:100%;min-height:64px;margin-top:12px;padding:12px;font-size:22px;font-weight:bold;color:#fff;background:#34495e;border:0;border-radius:10px;cursor:pointer}.sent{padding:16px;margin-bottom:20px;font-size:23px;font-weight:bold;color:#123b5d;background:#e0f2fe;border:2px solid #2563eb;border-radius:10px}")
                 .append("</style></head><body><main><header class='hero'><h1>").append(htmlEscape(receiverLabel))
                 .append("の画面</h1><p>届いたメッセージを読んだり、今日の気分を選べます。</p></header>");
         if (!sentTo.isEmpty()) {
@@ -273,7 +297,9 @@ public class App {
                         .append(moodForm(message.getId(), "😊 元気", "good"))
                         .append(moodForm(message.getId(), "😐 まあまあ", "ok"))
                         .append(moodForm(message.getId(), "😢 寂しい", "lonely"))
-                        .append("</div></div>");
+                        .append("</div>")
+                        .append(freeReplyForm(message.getId()))
+                        .append("</div>");
             }
             html.append("</article>");
         }
@@ -285,9 +311,18 @@ public class App {
     }
 
     static String moodForm(int originalId, String mood, String cssClass) {
-        return "<form method='post' action='/mood'><input type='hidden' name='originalId' value='"
+        return "<form method='post' accept-charset='UTF-8' action='/mood'><input type='hidden' name='originalId' value='"
                 + originalId + "'><button class='mood-button " + cssClass + "' name='mood' value='"
                 + htmlEscape(mood) + "' type='submit'>" + htmlEscape(mood) + "</button></form>";
+    }
+
+    static String freeReplyForm(int originalId) {
+        return "<form class='free-reply' method='post' accept-charset='UTF-8' action='/reply'>"
+                + "<input type='hidden' name='originalId' value='" + originalId + "'>"
+                + "<label for='reply-text-" + originalId + "'>メッセージを入力</label>"
+                + "<textarea id='reply-text-" + originalId + "' name='text' rows='3' "
+                + "placeholder='返事を入力してください' required></textarea>"
+                + "<button type='submit'>送信する</button></form>";
     }
 
     static String resolveReceiverName(String requestedName) {

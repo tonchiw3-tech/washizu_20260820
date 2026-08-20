@@ -27,10 +27,18 @@ public class App {
 
             if (path.equals("/add") && method.equals("POST")) {
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-                String familyName = formValue(body, "familyName").trim();
-                String text = formValue(body, "message").trim();
-                if (!familyName.isEmpty() && !text.isEmpty()) {
-                    messages.add(new Message(nextId++, familyName, text));
+                String sender = formValue(body, "sender").trim();
+                String receiver = formValue(body, "receiver").trim();
+                String text = formValue(body, "text").trim();
+                // 以前のフォーム名でも受け取れるようにして、既存の送信方法を壊さない。
+                if (sender.isEmpty()) {
+                    sender = formValue(body, "familyName").trim();
+                }
+                if (text.isEmpty()) {
+                    text = formValue(body, "message").trim();
+                }
+                if (!sender.isEmpty() && !receiver.isEmpty() && !text.isEmpty()) {
+                    messages.add(new Message(nextId++, sender, receiver, text));
                     save();
                 }
                 redirect(exchange);
@@ -123,6 +131,7 @@ public class App {
                 .append("body{max-width:680px;margin:0 auto;padding:32px 20px;font-family:sans-serif;font-size:16px;line-height:1.6;color:#333;background:#fafafa;}")
                 .append(".hero{margin-bottom:24px;}.hero h1{margin:0 0 8px;font-size:26px;}.hero p{margin:0;color:#555;}")
                 .append(".add-form{display:grid;gap:10px;margin-bottom:28px;padding:18px;background:white;border:1px solid #ddd;border-radius:8px;}")
+                .append(".add-form label{display:grid;gap:4px;font-weight:bold;}")
                 .append(".add-form input,.add-form textarea{width:100%;padding:10px;font:inherit;border:1px solid #aaa;border-radius:4px;}")
                 .append(".add-form button,.actions a{display:inline-block;padding:8px 12px;font:inherit;border:1px solid #888;border-radius:4px;background:#f5f5f5;color:#333;text-decoration:none;cursor:pointer;}")
                 .append(".message-list{margin:0;padding:0;list-style:none;}.message-item{margin-bottom:12px;padding:16px;background:white;border:1px solid #ddd;border-radius:8px;}")
@@ -132,8 +141,9 @@ public class App {
                 .append("</style></head><body><main>")
                 .append("<header class='hero'><h1>つながるメッセージ</h1><p>家族からのメッセージを届けます。</p></header>")
                 .append("<form class='add-form' method='post' action='/add'>")
-                .append("<input name='familyName' placeholder='家族名' autocomplete='name' required>")
-                .append("<textarea name='message' placeholder='メッセージを入力してください' rows='4' required></textarea>")
+                .append("<label>送る人<input name='sender' placeholder='送る人' autocomplete='name' required></label>")
+                .append("<label>受け取る人<input name='receiver' placeholder='受け取る人' autocomplete='name' required></label>")
+                .append("<label>メッセージ<textarea name='text' placeholder='メッセージを入力してください' rows='4' required></textarea></label>")
                 .append("<button type='submit'>送信する</button></form>")
                 .append("<p>届いたメッセージ: ").append(messages.size()).append("件</p>")
                 .append("<ul class='message-list'>");
@@ -149,7 +159,9 @@ public class App {
                 String status = message.isRead() ? "既読" : "未読";
                 html.append("<li class='message-item ").append(itemClass).append("'>")
                         .append("<div class='message-head'><span class='family-name'>")
-                        .append(htmlEscape(message.getFamilyName()))
+                        .append(htmlEscape(message.getSender()))
+                        .append(" → ")
+                        .append(htmlEscape(message.getReceiver()))
                         .append("</span><span class='status'>").append(status).append("</span></div>")
                         .append("<div class='message-text'>")
                         .append(htmlEscape(message.getText()))
@@ -171,7 +183,8 @@ public class App {
         for (Message message : messages) {
             lines.add(message.getId()
                     + "\t" + message.isRead()
-                    + "\t" + encode(message.getFamilyName())
+                    + "\t" + encode(message.getSender())
+                    + "\t" + encode(message.getReceiver())
                     + "\t" + encode(message.getText()));
         }
 
@@ -201,7 +214,18 @@ public class App {
                 try {
                     int id = Integer.parseInt(fields[0]);
                     boolean read = Boolean.parseBoolean(fields[1]);
-                    Message message = new Message(id, decode(fields[2]), decode(fields[3]));
+                    String sender = decode(fields[2]);
+                    String receiver;
+                    String text;
+                    if (fields.length >= 5) {
+                        receiver = decode(fields[3]);
+                        text = decode(fields[4]);
+                    } else {
+                        // 旧形式(id/read/familyName/text)も読み込む。
+                        receiver = "";
+                        text = decode(fields[3]);
+                    }
+                    Message message = new Message(id, sender, receiver, text);
                     message.setRead(read);
                     messages.add(message);
                     maxId = Math.max(maxId, id);
@@ -230,12 +254,21 @@ public class App {
                 json.append(',');
             }
             Message message = messages.get(i);
-            json.append("{\"familyName\":\"")
-                    .append(esc(message.getFamilyName()))
-                    .append("\",\"message\":\"")
+            json.append("{\"id\":")
+                    .append(message.getId())
+                    .append(",\"sender\":\"")
+                    .append(esc(message.getSender()))
+                    .append("\",\"receiver\":\"")
+                    .append(esc(message.getReceiver()))
+                    .append("\",\"text\":\"")
                     .append(esc(message.getText()))
                     .append("\",\"read\":")
                     .append(message.isRead())
+                    // 既存APIの利用者向けに、以前の項目名も残す。
+                    .append(",\"familyName\":\"")
+                    .append(esc(message.getSender()))
+                    .append("\",\"message\":\"")
+                    .append(esc(message.getText()))
                     .append('}');
         }
         return json.append(']').toString();
@@ -285,13 +318,15 @@ public class App {
 
 class Message {
     private final int id;
-    private final String familyName;
+    private final String sender;
+    private final String receiver;
     private final String text;
     private boolean read;
 
-    Message(int id, String familyName, String text) {
+    Message(int id, String sender, String receiver, String text) {
         this.id = id;
-        this.familyName = familyName;
+        this.sender = sender;
+        this.receiver = receiver;
         this.text = text;
         this.read = false;
     }
@@ -300,8 +335,12 @@ class Message {
         return id;
     }
 
-    String getFamilyName() {
-        return familyName;
+    String getSender() {
+        return sender;
+    }
+
+    String getReceiver() {
+        return receiver;
     }
 
     String getText() {
